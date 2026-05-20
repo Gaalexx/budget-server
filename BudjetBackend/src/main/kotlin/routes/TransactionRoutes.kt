@@ -19,7 +19,9 @@ fun Route.registerTransactionRoutes() {
                     type = call.request.queryParameters["type"],
                     categoryId = call.request.queryParameters["categoryId"],
                     from = call.request.queryParameters["from"],
-                    to = call.request.queryParameters["to"]
+                    to = call.request.queryParameters["to"],
+                    page = call.request.queryParameters["page"]?.toIntOrNull() ?: 1,
+                    limit = call.request.queryParameters["limit"]?.toIntOrNull() ?: 20
                 )
 
                 call.respond(TransactionsTable.list(call.requiredUserId(), filters))

@@ -18,7 +18,9 @@ data class TransactionFilters(
     val type: String? = null,
     val categoryId: String? = null,
     val from: String? = null,
-    val to: String? = null
+    val to: String? = null,
+    val page: Int = 1,
+    val limit: Int = 20
 )
 
 @Serializable
@@ -38,5 +40,9 @@ data class TransactionResponse(
 @Serializable
 data class TransactionsResponse(
     val items: List<TransactionResponse>,
-    val filters: TransactionFilters
+    val filters: TransactionFilters,
+    val total: Long = 0,
+    val page: Int = 1,
+    val limit: Int = 20,
+    val totalPages: Int = 1
 )

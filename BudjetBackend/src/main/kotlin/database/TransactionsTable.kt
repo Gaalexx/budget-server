@@ -62,6 +62,16 @@ object TransactionsTable : UUIDTable("transactions") {
         filters.from?.let { conditions += transactionDate greaterEq parseDate(it, "from") }
         filters.to?.let { conditions += transactionDate lessEq parseDate(it, "to") }
 
+        val pageSize = filters.limit.coerceIn(1, 500)
+        val page = filters.page.coerceAtLeast(1)
+        val offset = ((page - 1) * pageSize).toLong()
+
+        val baseQuery = leftJoin(CategoriesTable)
+            .selectAll()
+            .where(conditions.compoundAnd())
+
+        val total = baseQuery.count()
+
         val rows = leftJoin(CategoriesTable)
             .selectAll()
             .where(conditions.compoundAnd())
@@ -69,11 +79,17 @@ object TransactionsTable : UUIDTable("transactions") {
                 transactionDate to SortOrder.DESC,
                 createdAt to SortOrder.DESC
             )
+            .limit(pageSize)
+            .offset(offset)
             .map { it.toTransactionResponse() }
 
         TransactionsResponse(
             items = rows,
-            filters = filters
+            filters = filters,
+            total = total,
+            page = page,
+            limit = pageSize,
+            totalPages = if (total == 0L) 1 else ((total + pageSize - 1) / pageSize).toInt()
         )
     }
 
