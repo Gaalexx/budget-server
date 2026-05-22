@@ -4,6 +4,7 @@ import com.auth.AuthErrorResponse
 import com.auth.AuthException
 import com.auth.AuthMessageResponse
 import com.auth.AuthService
+import com.auth.ChangePasswordRequest
 import com.auth.LoginRequest
 import com.auth.RefreshRequest
 import com.auth.RegisterRequest
@@ -48,6 +49,13 @@ fun Route.registerAuthRoutes(jwtSettings: JwtSettings) {
             get("/me") {
                 call.respondAuth {
                     authService.currentUser(call.requiredUserId())
+                }
+            }
+
+            post("/change-password") {
+                call.respondAuth {
+                    val request = call.receiveNullable<ChangePasswordRequest>()
+                    authService.changePassword(call.requiredUserId(), request)
                 }
             }
         }

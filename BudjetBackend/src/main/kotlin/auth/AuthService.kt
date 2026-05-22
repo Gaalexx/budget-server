@@ -87,6 +87,22 @@ class AuthService(
         return user.toProfileResponse()
     }
 
+    fun changePassword(userId: UUID, request: ChangePasswordRequest?): AuthMessageResponse {
+        val currentPassword = request?.currentPassword?.takeIf { it.isNotBlank() }
+            ?: throw AuthException(HttpStatusCode.BadRequest, "Current password is required")
+        val newPassword = validatePassword(request.newPassword)
+
+        val user = UsersTable.findByIdWithPassword(userId)
+            ?: throw AuthException(HttpStatusCode.NotFound, "User not found")
+
+        if (!PasswordHasher.verify(currentPassword, user.passwordHash)) {
+            throw AuthException(HttpStatusCode.Unauthorized, "Current password is incorrect")
+        }
+
+        UsersTable.updatePassword(userId, PasswordHasher.hash(newPassword))
+        return AuthMessageResponse("Password changed successfully")
+    }
+
     private fun issueTokens(userId: String, email: String): TokenPair {
         return TokenPair(
             accessToken = createToken(

@@ -52,6 +52,13 @@ object UsersTable : UUIDTable("users") {
             ?.toUserCredentialsRecord()
     }
 
+    fun findByIdWithPassword(userId: UUID): UserCredentialsRecord? = transaction {
+        selectAll()
+            .where { UsersTable.id eq userId }
+            .singleOrNull()
+            ?.toUserCredentialsRecord()
+    }
+
     fun updatePassword(userId: UUID, passwordHash: String): Boolean = transaction {
         exposedUpdate({ UsersTable.id eq userId }) {
             it[UsersTable.passwordHash] = passwordHash

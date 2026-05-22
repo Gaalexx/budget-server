@@ -51,3 +51,9 @@ data class AuthMessageResponse(
 data class AuthErrorResponse(
     val message: String
 )
+
+@Serializable
+data class ChangePasswordRequest(
+    val currentPassword: String? = null,
+    val newPassword: String? = null
+)
