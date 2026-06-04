@@ -58,7 +58,11 @@ object TransactionsTable : UUIDTable("transactions") {
 
         val conditions = mutableListOf(userId eq EntityID(ownerId, UsersTable))
         filters.type?.let { conditions += type eq TransactionType.parse(it) }
-        filters.categoryId?.let { conditions += categoryId eq EntityID(parseUuid(it, "categoryId"), CategoriesTable) }
+        filters.categoryId?.let {
+            if (it != "null") {
+                conditions += categoryId eq EntityID(parseUuid(it, "categoryId"), CategoriesTable)
+            }
+        }
         filters.from?.let { conditions += transactionDate greaterEq parseDate(it, "from") }
         filters.to?.let { conditions += transactionDate lessEq parseDate(it, "to") }
 

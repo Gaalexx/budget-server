@@ -3,37 +3,89 @@ package com.routes
 import io.ktor.http.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
-import kotlinx.serialization.Serializable
 
 fun Route.registerPwaRoutes() {
-    get("/manifest.json") {
-        call.respond(
-            PwaManifestResponse(
-                name = "Budget PWA",
-                shortName = "Budget",
-                startUrl = "/",
-                display = "standalone",
-                backgroundColor = "#ffffff",
-                themeColor = "#0F766E",
-                icons = listOf(
-                    ManifestIcon("/icons/icon-192.png", "192x192", "image/png"),
-                    ManifestIcon("/icons/icon-512.png", "512x512", "image/png", "any maskable")
-                )
-            )
-        )
-    }
-
     get("/service-worker.js") {
         call.respondText(
             text = """
-                const CACHE_NAME = "budget-pwa-v1";
-                self.addEventListener("install", event => {
-                  event.waitUntil(caches.open(CACHE_NAME));
-                });
+            'use strict';
 
-                self.addEventListener("fetch", event => {
-                  event.respondWith(fetch(event.request).catch(() => caches.match(event.request)));
-                });
+            const CACHE_NAME = "budget-pwa-v4";
+            const OFFLINE_URL = "/offline.html";
+
+            const CORE_ASSETS = [
+              "/",
+              "/index.html",
+              "/flutter_bootstrap.js",
+              "/flutter.js",
+              "/main.dart.js",
+              "/manifest.json",
+              "/favicon.png",
+              "/version.json",
+              "/canvaskit/canvaskit.js",
+              "/canvaskit/canvaskit.wasm",
+              "/assets/AssetManifest.bin",
+              "/assets/AssetManifest.bin.json",
+              "/assets/FontManifest.json",
+              "/assets/fonts/MaterialIcons-Regular.otf",
+              "/icons/Icon-192.png",
+              "/icons/Icon-512.png",
+              OFFLINE_URL
+            ];
+
+            self.addEventListener("install", (event) => {
+              self.skipWaiting();
+              event.waitUntil(
+                caches.open(CACHE_NAME).then((cache) =>
+                  Promise.allSettled(CORE_ASSETS.map((url) => cache.add(url)))
+                )
+              );
+            });
+
+            self.addEventListener("activate", (event) => {
+              event.waitUntil((async () => {
+                const keys = await caches.keys();
+                await Promise.all(
+                  keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k))
+                );
+                await self.clients.claim();
+              })());
+            });
+
+            self.addEventListener("fetch", (event) => {
+              const request = event.request;
+              if (request.method !== "GET") return;
+
+              const url = new URL(request.url);
+
+              if (url.origin !== self.location.origin) return;
+
+              if (url.pathname.startsWith("/api/")) return;
+
+              if (request.mode === "navigate") {
+                event.respondWith(
+                  fetch(request).catch(() =>
+                    caches.match("/index.html").then((r) => r || caches.match(OFFLINE_URL))
+                  )
+                );
+                return;
+              }
+
+              event.respondWith(
+                caches.match(request).then((cached) => {
+                  if (cached) return cached;
+                  return fetch(request)
+                    .then((response) => {
+                      if (response && response.status === 200 && response.type === "basic") {
+                        const clone = response.clone();
+                        caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
+                      }
+                      return response;
+                    })
+                    .catch(() => caches.match(OFFLINE_URL));
+                })
+              );
+            });
             """.trimIndent(),
             contentType = ContentType.parse("application/javascript")
         )
@@ -58,22 +110,3 @@ fun Route.registerPwaRoutes() {
         )
     }
 }
-
-@Serializable
-private data class ManifestIcon(
-    val src: String,
-    val sizes: String,
-    val type: String,
-    val purpose: String? = null
-)
-
-@Serializable
-private data class PwaManifestResponse(
-    val name: String,
-    val shortName: String,
-    val startUrl: String,
-    val display: String,
-    val backgroundColor: String,
-    val themeColor: String,
-    val icons: List<ManifestIcon>
-)
