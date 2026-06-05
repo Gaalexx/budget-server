@@ -34,11 +34,16 @@
 </head>
 <body>
   <script src="flutter_bootstrap.js" async></script>
-
   <script>
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('/service-worker.js');
-    }
+    window.addEventListener('load', function () {
+      if (!('serviceWorker' in navigator)) {
+        return;
+      }
+
+      setTimeout(function () {
+        navigator.serviceWorker.register('/service-worker.js').catch(function () {});
+      }, 1000);
+    });
   </script>
 </body>
 </html>
