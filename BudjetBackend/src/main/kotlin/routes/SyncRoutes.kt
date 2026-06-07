@@ -39,8 +39,9 @@ fun Route.registerSyncRoutes() {
                                 )
                             )
                         } else {
-                            TransactionsTable.create(
+                            TransactionsTable.syncCreate(
                                 ownerId = userId,
+                                localId = item.localId,
                                 request = TransactionUpsertRequest(
                                     type = item.type,
                                     amount = item.amount,

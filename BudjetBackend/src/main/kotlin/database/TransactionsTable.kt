@@ -29,6 +29,8 @@ object TransactionsTable : UUIDTable("transactions") {
     val userId = reference("user_id", UsersTable, onDelete = ReferenceOption.CASCADE)
     val categoryId = optReference("category_id", CategoriesTable, onDelete = ReferenceOption.SET_NULL)
 
+    val clientLocalId = varchar("client_local_id", 64).nullable()
+
     val type = customEnumeration(
         name = "type",
         sql = "VARCHAR(20)",
@@ -128,6 +130,39 @@ object TransactionsTable : UUIDTable("transactions") {
             ?: throw TransactionNotFoundException(newId)
     }
 
+    fun syncCreate(ownerId: UUID, localId: String?, request: TransactionUpsertRequest?): TransactionResponse = transaction {
+        UsersTable.ensureExistsInCurrentTransaction(ownerId)
+
+        if (localId != null) {
+            val existing = findByClientLocalIdInCurrentTransaction(ownerId, localId)
+            if (existing != null) {
+                return@transaction existing.toTransactionResponse(syncStatus = "synced")
+            }
+        }
+
+        val payload = request ?: throw IllegalArgumentException("Request body is required")
+        val parsedType = TransactionType.parse(payload.type)
+        val parsedAmount = parseAmount(payload.amount)
+        val parsedCategoryId = payload.categoryId?.let { parseUuid(it, "categoryId") }
+        validateCategory(ownerId, parsedCategoryId)
+
+        val newId = insertAndGetId {
+            it[userId] = EntityID(ownerId, UsersTable)
+            it[categoryId] = parsedCategoryId?.let { id -> EntityID(id, CategoriesTable) }
+            it[type] = parsedType
+            it[amount] = parsedAmount
+            it[title] = payload.title?.takeIf(String::isNotBlank)
+            it[description] = payload.description
+                ?.takeIf(String::isNotBlank)
+                ?: payload.comment?.takeIf(String::isNotBlank)
+            it[transactionDate] = payload.date?.let { value -> parseDate(value, "date") } ?: LocalDate.now()
+            it[clientLocalId] = localId
+        }.value
+
+        findByIdInCurrentTransaction(ownerId, newId)?.toTransactionResponse(syncStatus = "created")
+            ?: throw TransactionNotFoundException(newId)
+    }
+
     fun update(ownerId: UUID, transactionId: UUID, request: TransactionUpsertRequest?): TransactionResponse = transaction {
         UsersTable.ensureExistsInCurrentTransaction(ownerId)
 
@@ -176,6 +211,15 @@ object TransactionsTable : UUIDTable("transactions") {
             .selectAll()
             .where {
                 (TransactionsTable.id eq transactionId) and (TransactionsTable.userId eq EntityID(ownerId, UsersTable))
+            }
+            .singleOrNull()
+    }
+
+    private fun findByClientLocalIdInCurrentTransaction(ownerId: UUID, localId: String): ResultRow? {
+        return leftJoin(CategoriesTable)
+            .selectAll()
+            .where {
+                (TransactionsTable.userId eq EntityID(ownerId, UsersTable)) and (clientLocalId eq localId)
             }
             .singleOrNull()
     }
