@@ -28,6 +28,7 @@ fun Route.registerPwaRoutes() {
               "/assets/AssetManifest.bin.json",
               "/assets/FontManifest.json",
               "/assets/fonts/MaterialIcons-Regular.otf",
+              "/assets/packages/cupertino_icons/assets/CupertinoIcons.ttf",
               "/icons/Icon-192.png",
               "/icons/Icon-512.png",
               OFFLINE_URL

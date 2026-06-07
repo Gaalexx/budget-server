@@ -11,6 +11,7 @@ import io.ktor.server.response.respond
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.post
 import io.ktor.server.routing.route
+import java.util.UUID
 
 fun Route.registerSyncRoutes() {
     authenticate {
@@ -24,26 +25,40 @@ fun Route.registerSyncRoutes() {
 
                 for (item in request.transactions) {
                     val result = runCatching {
-                        TransactionsTable.create(
-                            ownerId = userId,
-                            request = TransactionUpsertRequest(
-                                type = item.type,
-                                amount = item.amount,
-                                categoryId = item.categoryId,
-                                date = item.date,
-                                title = item.title,
-                                description = item.description
+                        if (item.isUpdate == true && item.id != null) {
+                            TransactionsTable.update(
+                                ownerId = userId,
+                                transactionId = UUID.fromString(item.id),
+                                request = TransactionUpsertRequest(
+                                    type = item.type,
+                                    amount = item.amount,
+                                    categoryId = item.categoryId,
+                                    date = item.date,
+                                    title = item.title,
+                                    description = item.description,
+                                )
                             )
-                        )
+                        } else {
+                            TransactionsTable.create(
+                                ownerId = userId,
+                                request = TransactionUpsertRequest(
+                                    type = item.type,
+                                    amount = item.amount,
+                                    categoryId = item.categoryId,
+                                    date = item.date,
+                                    title = item.title,
+                                    description = item.description,
+                                )
+                            )
+                        }
                     }
-
-
 
                     results += if (result.isSuccess) {
                         SyncResultItem(
                             localId = item.localId,
                             transaction = result.getOrNull(),
-                            status = "synced"
+                            status = "synced",
+                            isUpdate = item.isUpdate
                         )
                     } else {
                         SyncResultItem(
